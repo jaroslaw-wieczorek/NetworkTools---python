@@ -10,21 +10,26 @@ import subprocess
 '''
 jackknife - program typu netcat
 Opis działania:
+
 Najpierw skrypt wczytuje wszystkie opcje wiersza poleceń i ustawiamy wartości
  zmiennych na podstawie wykrytych opcji. Jeśli któryś z parametrów wiersza
  poleceń nie spełnia naszych kryteriów, drukujemy instrukcję obsługi.
+
 W następnym bloku kodu próbujemy naśladować funkcje netcata dotyczące
  odczytywania danych ze standardowego strumienia wejściowego i przesyłania ich
  przez sieć.
+
 CTRL-D wyjście z trybu nasłuchu i włączenie interaktywnego terminala
  z nasłuchem. W ostatniej części kodu wykrywamy, że mamy utworzyć gniazdo
  nasłuchujące i przetwarzać dalsze polecenia (wysyłanie pliku, wykonanie
  polecenia, uruchomienie wiersza poleceń).
+
 Napierw tworzymy obiekt gniazda TCP i sprawdzamy czy otrzymaliśmy jakieś dane
  w standardowym strumieniu wejściowym. Jeśli wszystko jest w porządku,
  przesyłamy dane do komputera docelowego i pobieramy dane w odpowiedz,
  aż się wyczerpią. Wszystko z odbieraniem i wysyłaniem jest powtarzane do
  meomentu aż użytkownikwyłączy skrypt.
+
 '''
 # defnicje kilku zminenych
 listen = False
@@ -36,7 +41,7 @@ upload_destination = ''
 port = 0
 
 
-def showHelp():
+def show_help():
     print("Narzędzia Jackknife - BHP Netcat")
     print("Sposób użycia:\n jackknife.py -t target_host -p port\n")
     print("-l --listen\t\t -nasłuchuje na [host]:[port] połączeń " +
@@ -54,9 +59,13 @@ def showHelp():
     sys.exit(0)
 
 
-def client_sender(buffer):
-
+def create_tcp_socket():
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    return client
+
+
+def client_sender(buffer):
+    client = create_tcp_socket()
     try:
         # połączenie się z docelowym hostem
         client.connect((target, port))
@@ -181,7 +190,7 @@ def run_command(command):
         output = subprocess.check_output(command, stderr=subprocess.STDOUT,
                                          shell=True)
     except CalledProcessError as error:
-        output = 'Nie udało się wykonać polecenia.\r\n'
+        output = 'Nie udało się wykonać polecenia.\r\n'
     except any:
         output = 'Inny błąd podczas wykonywania polecenia.\r\n'
     # wysyłanie wyniku do klienta
@@ -197,45 +206,46 @@ def main():
     global target
 
     if not len(sys.argv[1:]):
-        showHelp()
+        show_help()
 
     # odczytanie wiersza poleceń
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], 'hle:t:p:cu:',
-                                   ['help', 'listen', 'execute',
-                                    'target', 'port', 'command',
-                                    'upload'])
-    except getopt.GetoptError as error:
-        print('Błąd getopt: \n', error)
-        showHelp()
-    for o, a in opts:
-        if o in ('-h', '--help'):
-            showHelp()
-        elif o in ('-l', '--listen'):
-            listen = True
-        elif o in ('-e', '--execute'):
-            execute = a
-        elif o in ('-c', '--commandshell', '--terminall'):
-            command = True
-        elif o in ('-t', '--target'):
-            target = a
-        elif o in ('-p', '--port'):
-            port = int(a)
-        else:
-            assert('Nieobsługiwana opcja')
+    def readCommandline():
+        try:
+            opts, args = getopt.getopt(sys.argv[1:], 'hle:t:p:cu:',
+                                       ['help', 'listen', 'execute',
+                                        'target', 'port', 'command',
+                                        'upload'])
+        except getopt.GetoptError as error:
+            print('Błąd getopt: \n', error)
+        show_help()
+        for o, a in opts:
+            if o in ('-h', '--help'):
+                show_help()
+            elif o in ('-l', '--listen'):
+                listen = True
+            elif o in ('-e', '--execute'):
+                execute = a
+            elif o in ('-c', '--commandshell', '--terminall'):
+                command = True
+            elif o in ('-t', '--target'):
+                target = a
+            elif o in ('-p', '--port'):
+                port = int(a)
+            else:
+                assert('Nieobsługiwana opcja')
 
-    # Będziemy nasłuchiwać czy tylko wysyłać dane ze sdtin?
-    if not listen and len(target) and port > 0:
-        # Wczytuje bufor z wiersza poleceń
-        # spowoduje to blokadę terminala,
-        # aby kontynuować należy wysłać CTRL-D,
-        # gdy nie wysyłasz danych do stdin.
+        # Będziemy nasłuchiwać czy tylko wysyłać dane ze sdtin?
+        if not listen and len(target) and port > 0:
+            # Wczytuje bufor z wiersza poleceń
+            # spowoduje to blokadę terminala,
+            # aby kontynuować należy wysłać CTRL-D,
+            # gdy nie wysyłasz danych do stdin.
 
-        buffer = sys.stdin.read().encode('utf-8')
-        # Wysyła dane
-        client_sender(buffer)
+            buffer = sys.stdin.read().encode('utf-8')
+            # Wysyła dane
+            client_sender(buffer)
 
-    # Będziemy nasłuchiwać i ewentalnie coś wysyłać, wykonywać polecenia oraz
+    # Będziemy nasłuchiwać i ewentalnie coś wysyłać, wykonywać polecenia oraz
     # włączać powłokę w zależności od opcji wiersza poleceń
     if listen:
         server_loop()

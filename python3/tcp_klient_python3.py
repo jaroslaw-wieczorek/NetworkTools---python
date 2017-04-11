@@ -9,12 +9,12 @@ target_port = 9998
 
 # utworzenie obiektu gniazda
 client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-print ("client object was created")
+print("client object was created")
 
 # połączenie się klienta z serwerem
 client.connect((target_host, target_port))
 
-#wysyłanie danych
+# wysyłanie danych
 data = "GET / HTTP/1.1\r\nHost: duckduckgo.com\r\n\r\n"
 client.send(data.encode('utf-8'))
 

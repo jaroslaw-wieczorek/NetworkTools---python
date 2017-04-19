@@ -6,6 +6,7 @@ import socket
 import getopt
 import threading
 import subprocess
+from subprocess import CalledProcessError
 
 '''
 jackknife - program typu netcat
@@ -54,6 +55,15 @@ def showHelp():
     sys.exit(0)
 
 
+def parse_msg(response):
+        msg = response.replace("b\'\'", "")
+        msg = msg.replace("\'<", "\n<")
+        msg = msg.replace("\' <", "\n<")
+        msg = msg.replace("\\n", "\n")
+        msg = msg.replace("b\'", "")
+        return msg
+
+
 def client_sender(buffer):
 
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -67,7 +77,7 @@ def client_sender(buffer):
 
             # czekanie na zwrot danych
             recv_len = 1
-            response = ''
+            response = ""
 
             while recv_len:
 
@@ -78,16 +88,18 @@ def client_sender(buffer):
                 if recv_len < 4096:
                     break
 
+            response = parse_msg(response)
             print(response)
 
             # czekanie na więcej danych
-            buffer = input()
-            buffer += '\n'
+            buffer = str(input())
+            buffer += "\n"
 
             # wysłanie danych
             client.send(buffer.encode('utf-8'))
-    except:
-        print('[*] Wyjątek! Zamykanie')
+    except Exception as err:
+        print("[*] Wyjątek! Zamyknięcie połączenia z powodu:\n")
+        print(err)
 
         # zamknięcie połączenia
         client.close()
@@ -141,8 +153,10 @@ def client_handler(client_socket):
             # potwierdzenie zapiasnia pliku
             info = ('Zapisano plik w %s\r\n' % upload_destination)
             client_socket.send(info).encode('utf-8')
-        except:
-            info = 'Nie udało się zapisać pliku w %s\r\n' % upload_destination
+        except Exception as err:
+            info = ("Nie udało się zapisać pliku w %s\r\n" % upload_destination
+                    + " z powodu błędu:\r\n" + str(err))
+
             client_socket.send(info).encode('utf-8')
 
     # sprawdzanie czy wykonano polecenia
@@ -154,20 +168,23 @@ def client_handler(client_socket):
 
     # Jeśli zażądano wiersza poleceń, przechodzimy do innej pętli
     if command:
-
+        show_terminal = True
         while True:
+
             # wyświetlanie prostego wiersza poleceń
-            term = '<jackknife:#> '
-            client_socket.send(term.encode('utf-8'))
+            if (show_terminal):
+                term = "<jackknife:#> "
+                client_socket.send(term.encode('utf-8'))
+                show_terminal = False
 
             # Pobierany tekst do napotkania znaku nowego wiersza (enter)
             cmd_buffer = ''
-            while ('\n' not in cmd_buffer):
+            while ("\n" not in cmd_buffer):
                 cmd_buffer += client_socket.recv(1024).decode('utf-8')
 
             # Odesłanie wyniku polecenia
             response = run_command(cmd_buffer)
-
+            response += "\n<jackknife:#> "
             # Odesłanie odpowiedzi
             client_socket.send(response.encode('utf-8'))
 
@@ -206,7 +223,7 @@ def main():
                                     'target', 'port', 'command',
                                     'upload'])
     except getopt.GetoptError as error:
-        print('Błąd getopt: \n', error)
+        print('Błąd getopt: \n', str(error))
         showHelp()
     for o, a in opts:
         if o in ('-h', '--help'):
@@ -228,10 +245,10 @@ def main():
     if not listen and len(target) and port > 0:
         # Wczytuje bufor z wiersza poleceń
         # spowoduje to blokadę terminala,
-        # aby kontynuować należy wysłać CTRL-D,
+        # aby kontynuować należimport stringy wysłać CTRL-D,
         # gdy nie wysyłasz danych do stdin.
 
-        buffer = sys.stdin.read().encode('utf-8')
+        buffer = str(sys.stdin.read())
         # Wysyła dane
         client_sender(buffer)
 
